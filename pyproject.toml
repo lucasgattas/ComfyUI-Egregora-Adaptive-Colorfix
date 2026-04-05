@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui-egregora-adaptive-colorfix"
-version = "0.1.0
-description = "Custom ComfyUI node for adaptive color fixing with stronger edge protection and luminance-aware chroma fusion."
+version = "0.1.1"
+description = "Adaptive color fix custom node for ComfyUI with stronger edge protection and luminance-aware chroma fusion."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = { file = "LICENSE" }
 authors = [
   { name = "Lucas Gattas" }
 ]
@@ -20,10 +20,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/lucasgattas/ComfyUI-Egregora-Adaptive-Colorfix"
 Repository = "https://github.com/lucasgattas/ComfyUI-Egregora-Adaptive-Colorfix"
+Documentation = "https://github.com/lucasgattas/ComfyUI-Egregora-Adaptive-Colorfix#readme"
+"Bug Tracker" = "https://github.com/lucasgattas/ComfyUI-Egregora-Adaptive-Colorfix/issues"
 
 [tool.comfy]
 PublisherId = "mrgattax"
 DisplayName = "Egregora Adaptive Colorfix"
 Icon = ""
+includes = []
