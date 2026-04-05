@@ -2,7 +2,7 @@
 
 **Color Fix Adaptive Chroma Fusion** is a custom node for **ComfyUI** designed to improve color consistency between a **reference image** and a **target image**, especially in workflows where traditional color-matching methods tend to break down.
 
-It was developed with a practical goal in mind: achieve a result that is often more stable and visually pleasing than **wavelet-only**, **AdaIN**, **Lab-based global matching**, and similar approaches when the image structure is **not perfectly aligned** — which is very common in AI image generation, tiled upscaling, restoration, and enhancement pipelines.
+It was developed with a practical goal in mind: achieve a result that is often more stable and visually pleasing than **wavelet-only**, **AdaIN**, **Lab-based global matching**, and similar approaches when the image structure is **not perfectly aligned**, which is very common in AI image generation, tiled upscaling, restoration, and enhancement pipelines.
 
 ---
 
