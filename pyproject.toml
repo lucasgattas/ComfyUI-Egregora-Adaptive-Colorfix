@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-egregora-adaptive-colorfix"
+version = "0.1.0"
+description = "Custom ComfyUI node for adaptive color fixing with stronger edge protection and luminance-aware chroma fusion."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Lucas Gattas" }
+]
+dependencies = [
+  "numpy",
+  "opencv-python",
+  "PyWavelets",
+  "torch"
+]
+
+[project.urls]
+Homepage = "https://github.com/lucasgattas/ComfyUI-Egregora-Adaptive-Colorfix"
+Repository = "https://github.com/lucasgattas/ComfyUI-Egregora-Adaptive-Colorfix"
+
+[tool.comfy]
+PublisherId = "lucasgattas"
+DisplayName = "Egregora Adaptive Colorfix"
+Icon = ""
