@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui-egregora-adaptive-colorfix"
-version = "0.1.1"
+version = "0.1.0"
 description = "Adaptive color fix custom node for ComfyUI with stronger edge protection and luminance-aware chroma fusion."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,6 +26,6 @@ Documentation = "https://github.com/lucasgattas/ComfyUI-Egregora-Adaptive-Colorf
 
 [tool.comfy]
 PublisherId = "mrgattax"
-DisplayName = "Egregora Adaptive Colorfix"
+DisplayName = "ComfyUI-Egregora-Adaptive-Colorfix"
 Icon = ""
 includes = []
