@@ -1,12 +1,14 @@
 # 🎨 ComfyUI-Egregora-Adaptive-Colorfix
 
-**Color Fix Adaptive Chroma Fusion** is a custom node for **ComfyUI** designed to improve color consistency between a **reference image** and a **target image**, especially in workflows where traditional color-matching methods tend to break down.
+**Color Fix Adaptive Chroma Fusion** is a custom ComfyUI node for reference-guided color correction.
 
-It was developed with a practical goal in mind: achieve a result that is often more stable and visually pleasing than **wavelet-only**, **AdaIN**, **Lab-based global matching**, and similar approaches when the image structure is **not perfectly aligned**, which is very common in AI image generation, tiled upscaling, restoration, and enhancement pipelines.
+It is designed for cases where simple color transfer methods often break down: tiled upscaling, restoration, enhancement, harmonization, and other workflows where the **reference image and target image do not share the exact same structure**.
+
+This version focuses on a simpler interface, stronger default behavior, and better practical stability.
 
 ---
 
-## ✨ What this node is for
+## ✨ What this node does
 
 This node is especially useful when you want to:
 
@@ -27,163 +29,229 @@ In short, the node tries to combine:
 - smarter **luminance control**
 - more robust behavior in images with **structural mismatch**
 
+This node transfers the **color behavior** of a reference image to a target image while trying to avoid the most common failure modes of naive color matching:
+
+- halos near edges
+- color spill across contours
+- washed-out global matching
+- unstable local correction
+- luminance contamination from structural mismatch
+
+Instead of using only one method, the node combines **global chroma anchoring**, **multiscale chroma transfer**, **edge-aware protection**, **confidence maps**, and **base/detail luminance control**.
+
+The goal is simple:
+
+> **make the target inherit the color feel of the reference without forcing the reference structure onto it.**
+
 ---
 
-## 🧠 Core idea behind the node
+## 🎯 Best use cases
 
-The node uses an **adaptive chroma fusion** strategy.
+This node is especially useful for:
 
-Instead of relying on a single color-transfer method, it combines several ideas:
+- tiled upscaling workflows
+- reference-guided color harmonization
+- restoration and enhancement pipelines
+- fixing tile-to-tile color drift
+- improving background and large-surface consistency
+- cases where Wavelet looks vivid but unstable
+- cases where AdaIN looks stable but too averaged
 
-### 1. Global chroma correction
-A global color adjustment brings the target closer to the reference in a stable way.
+---
 
-### 2. Multiscale chroma transfer
-It mixes:
-- a **wavelet low/mid-frequency chroma delta**
-- a **Gaussian multiscale chroma delta**
+## 🧠 What happens under the hood
 
-This helps preserve the reference color identity without forcing high-frequency structure from the reference onto the target.
+The node works in several stages.
 
-### 3. Strong edge-aware gating
-The node creates masks that reduce correction strength near:
-- strong edges
-- structural disagreement
-- local detail mismatch
-- unstable regions
+### 1. 🌈 RGB → Lab conversion
 
-This is one of its main strengths. It helps reduce:
+Both images are converted to **Lab space**.
+
+This matters because the node can treat:
+
+- **L** = luminance
+- **a / b** = chroma
+
+separately.
+
+That separation is one of the main reasons it behaves better than simple all-in-one color transfer.
+
+### 2. ⚓ Global chroma anchoring
+
+Before any local correction, the node performs a **global chroma stats transfer** from the reference to the target.
+
+This gives the target a stable overall color direction without immediately forcing local structure.
+
+Think of this as the first coarse alignment step.
+
+### 3. 🧩 Proxy confidence analysis at reduced resolution
+
+Part of the chroma analysis is computed on an internal proxy image capped at **1024 px** on the longest side.
+
+At this stage, the node builds confidence maps that estimate where correction is more trustworthy by comparing:
+
+- low-frequency luminance similarity
+- gradient similarity
+- local chroma compatibility
+
+This reduces cost while still preserving the broad spatial logic needed for color transfer.
+
+### 4. 🌊 Multiscale chroma transfer
+
+The chroma correction is not produced from a single source.
+
+It mixes two complementary components:
+
+- **wavelet low/mid-frequency chroma delta**
+- **Gaussian multiscale chroma delta**
+
+This is important because each component does something different:
+
+- the **wavelet path** helps preserve color identity
+- the **Gaussian path** helps stabilize the transfer spatially
+
+Together, they allow stronger color correction without leaning entirely on a single method.
+
+### 5. 🛡️ Edge-aware safety masks
+
+Once the confidence maps are available, the node computes **edge safety masks** in full resolution.
+
+These masks reduce correction strength near areas that are more likely to break visually, such as:
+
+- strong contours
+- unstable structural boundaries
+- low-confidence local zones
+- regions with higher risk of color bleed
+
+This is one of the most important parts of the node.
+
+It is what helps prevent:
+
 - halos
 - contour contamination
-- false illumination shifts
-- color spill near edges
+- false edge tinting
+- unstable correction near seams and borders
 
-### 4. Base/detail luminance transfer
-Luminance is handled more carefully than in simpler methods.
+### 6. 💡 Base/detail luminance transfer
 
-Instead of just pushing the full luminance toward the reference, the node separates it conceptually into:
+Luminance is handled separately from chroma.
+
+Instead of aggressively replacing the target luminance, the node conceptually splits it into:
+
 - **base luminance**
 - **detail luminance**
 
-Then it allows stronger luminance matching in large, smooth fields while preserving local target detail. This is important in tiled upscaling workflows where you want the background and large surfaces to become more uniform, without bringing back classic wavelet-style edge artifacts.
+Then it pushes the **base** more strongly toward the reference in broad, safer regions while preserving local detail from the target.
 
-### 5. Saturation protection
-To reduce gray or washed-out regions, the node includes a saturation safeguard that helps preserve chroma where needed.
+This is especially useful for:
 
----
+- flatter backgrounds
+- large surfaces
+- smoother global lighting consistency
 
-## ✅ Why it can work better than Wavelet or AdaIN
+without bringing back the classic artifacts that happen when luminance is transferred too directly.
 
-### Compared to Wavelet
-**Wavelet** often preserves color character very well, but it can become unstable when the reference and target do not share the same structure.
+### 7. 🧴 Saturation preservation
 
-Typical problems:
-- haloing
-- brightness contamination along edges
-- local tonal spill
-- detail mismatch artifacts
+After the main correction, the node applies a saturation safeguard.
 
-**Color Fix Adaptive Chroma Fusion** reduces those issues by:
-- restricting correction near unstable edges
-- focusing wavelet influence on low/mid frequency chroma
-- handling luminance separately
-- combining wavelet with other multiscale cues instead of relying on it alone
+This helps reduce the risk of:
 
-### Compared to AdaIN
-**AdaIN** is useful for broad color adaptation, but it often behaves like a statistical average.
+- gray-looking output
+- washed chroma
+- over-neutralized color regions
 
-Typical problems:
-- flatter color character
-- weaker local color fidelity
-- washed-out or over-averaged appearance
+The safeguard is intentionally conservative in this version and is fixed internally.
 
-**Color Fix Adaptive Chroma Fusion** improves on that by:
-- keeping stronger local color identity
-- using multiscale deltas instead of only global moments
-- protecting saturation
-- preserving more of the target structure
+### 8. 🧼 Final guided smoothing and safety limits
 
-### Compared to simple Lab / histogram / mean-std approaches
-These methods can be useful for rough matching, but they usually lack:
-- structural awareness
-- edge protection
-- adaptive local confidence
-- distinction between global and local correction
+Before converting back to RGB, the node applies a light guided-style smoothing step and clamps the maximum luminance/chroma shift.
 
-This node was designed specifically to address those limitations.
+This final stage helps keep the correction controlled and reduces unstable spikes.
 
 ---
 
-## 🚀 Main strengths
-
-- 🎯 Better balance between **global consistency** and **local fidelity**
-- 🧩 Useful for **tiled upscale** pipelines where background color drift can happen
-- 🛡️ Stronger **edge protection** than naive color transfer methods
-- 🌈 Better preservation of chroma than broad average-based methods
-- 🌓 More controlled luminance behavior
-- 🧪 Designed through iterative testing against practical failure cases
-
----
-
-## 🖼️ Best use cases
-
-This node is particularly useful for:
-
-- tiled upscaling
-- image enhancement pipelines
-- restoration workflows
-- reference-guided color harmonization
-- cases where the target image is **similar in color intent** but **different in structure**
-- situations where Wavelet gives artifacts and AdaIN gives bland results
-
----
-
-## ⚙️ Inputs
+## 🎛️ Inputs
 
 ### `image_ref`
 Reference image that provides the desired color behavior.
 
 ### `image_target`
-Target image that will receive the color correction.
-
-### `color_strength`
-Controls the overall color transfer strength.
+Target image that will receive the correction.
 
 ### `edge_safety`
-Controls how aggressively the node protects edges and structurally unstable areas.
+Controls how aggressively the node protects edges and structurally unstable regions.
 
-### `local_detail`
-Controls how much the local multiscale detail transfer contributes.
+**Lower values:**
+- stronger correction
+- less protection
+- more aggressive behavior
+
+**Higher values:**
+- safer edges
+- less spill
+- more conservative transfer
+
+**Range:** `0.0 → 3.0`
 
 ### `luma_match`
-Controls how strongly the luminance base is aligned with the reference.
+Controls how strongly the node aligns broad luminance behavior with the reference.
 
-### `saturation_guard`
-Controls how strongly saturation is preserved and recovered.
+**Lower values:**
+- more target-preserving luminance
+- weaker global brightness alignment
 
----
+**Higher values:**
+- stronger large-field luminance matching
+- more visible influence from the reference in broad areas
 
-## 🧪 Recommended starting values
-
-A strong starting preset found through practical testing is:
-
-- `color_strength = 1.00`
-- `edge_safety = 0.50`
-- `local_detail = 1.00`
-- `luma_match = 1.50`
-- `saturation_guard = 1.00`
-
-These values were selected as a good compromise between:
-- reduced haloing
-- stronger background consistency
-- stable overall color transfer
-- controlled luminance matching
+**Range:** `0.0 → 3.0`
 
 ---
 
-## 📦 Installation
+## 🔒 Fixed internal settings in this version
 
-Clone or copy the repository into your `ComfyUI/custom_nodes` folder:
+To keep the node faster and easier to use, several controls are intentionally hardcoded:
+
+- `color_strength = 1.0`
+- `local_detail = 1.0`
+- `saturation_guard = 1.0`
+- `internal_max_res = 1024`
+
+Other internal choices currently used:
+
+- `wavelet = db2`
+- `wavelet level = 1`
+- `guided radius = 12`
+
+This means the node now exposes only the two controls that most directly change real-world behavior during use.
+
+---
+
+## ✅ Practical strengths
+
+- strong balance between global color harmonization and local protection
+- useful in tiled upscale workflows
+- more robust than naive mean/std or simple Lab transfer
+- more controlled than broad average-style color matching
+- better edge safety than many direct transfer approaches
+- simplified UI with meaningful controls only
+
+---
+
+## ⚠️ Notes
+
+- This node is meant for **color behavior transfer**, not geometric or structural matching.
+- It works best when the reference provides a desirable color mood, palette, or lighting tendency.
+- Extremely mismatched images may still require some tuning.
+- Higher `edge_safety` is usually safer when the reference and target have stronger structural differences.
+- Higher `luma_match` is more useful when broad surfaces or backgrounds need better tonal consistency.
+
+---
+
+## 🚀 Installation
+
+Clone the repository into your `ComfyUI/custom_nodes` folder:
 
 ```bash
 cd ComfyUI/custom_nodes
@@ -200,7 +268,7 @@ pip install -r requirements.txt
 
 ---
 
-## 📚 Dependencies
+## 📦 Dependencies
 
 This node uses:
 
@@ -211,9 +279,7 @@ This node uses:
 
 ---
 
-## 🛠️ Project structure
-
-Typical minimal structure:
+## 🧱 Project structure
 
 ```text
 ComfyUI-Egregora-Adaptive-Colorfix/
@@ -221,43 +287,52 @@ ComfyUI-Egregora-Adaptive-Colorfix/
 ├── egregora_adaptive_colorfix_node.py
 ├── README.md
 ├── requirements.txt
+├── pyproject.toml
 └── LICENSE
 ```
 
 ---
 
-## 📌 Notes
+## 🏷️ Node name in ComfyUI
 
-- The node name shown inside ComfyUI is:
+The node appears in ComfyUI as:
 
 **🎨 Color Fix Adaptive Chroma Fusion**
 
-- The Python filename can be different from the display name.
-- You can rename the module file as long as `__init__.py` imports it correctly.
+Category:
+
+**`image/colorfix`**
 
 ---
 
-## 🤝 Motivation
+## 📝 Changelog
 
-This node was built from repeated real-world testing in ComfyUI pipelines where classic color transfer methods were not enough.
+### Current simplified version
 
-The main objective was not just “match colors”, but to do so in a way that is more useful for AI image workflows where:
-- structure changes
-- tiles differ
-- backgrounds shift
-- edges break easily
-- wavelet and statistical methods each solve only part of the problem
+- ✨ simplified the public UI to **two exposed controls only**
+- 🛡️ kept **`edge_safety`** as the main protection control
+- 💡 kept **`luma_match`** as the main luminance control
+- 🔒 hardcoded `color_strength = 1.0`
+- 🔒 hardcoded `local_detail = 1.0`
+- 🔒 hardcoded `saturation_guard = 1.0`
+- 🔒 hardcoded `internal_max_res = 1024`
+- 📈 increased caps for:
+  - `edge_safety` → `3.0`
+  - `luma_match` → `3.0`
+- 🧼 reduced UI clutter and removed redundant tuning for typical workflows
+- 🎯 kept the version that was visually more reliable in testing than the more aggressive hybrid luma experiments
+
+### Earlier direction
+
+- exposed more internal controls
+- allowed broader manual tuning
+- had a more parameter-heavy workflow
+- was more flexible, but also easier to overtune and harder to keep consistent
 
 ---
 
-## 📄 License
+## ❤️ Credits
 
-See the `LICENSE` file in this repository.
-
----
-
-## 🙌 Credits
-
-Developed by **Egrégora Labs** for the ComfyUI workflows ecosystem.
+Developed for the ComfyUI workflow ecosystem.
 
 If this node helps your workflow, consider starring the repository ⭐
